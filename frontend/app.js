@@ -1,6 +1,6 @@
 // Web-GIS Map Logic with High-Resolution Google/Esri Satellite & GeoJSON Layer
 
-// Harita Başlangıcı
+// Harita Başlangıcı (Antakya Merkezi)
 const map = L.map("map", {
   center: [36.2066, 36.1575],
   zoom: 17,
@@ -29,13 +29,13 @@ const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "OpenStreetMap",
 });
 
-// Katman Değiştirici (Sağ üste harita seçenekleri ekle)
+// Katman Değiştiriciyi sol alta veya sağ alta koyuyoruz ki istatistik panelinin arkasında kalmasın
 const baseMaps = {
-  "🛰️ Google Uydu (Önerilen)": googleHybrid,
+  "🛰️ Google Uydu (Net)": googleHybrid,
   "🌍 Esri Uydu": esriSat,
-  "🗺️ Standart Şehir Haritası": osm,
+  "🗺️ Şehir Haritası": osm,
 };
-L.control.layers(baseMaps, null, { position: "topright" }).addTo(map);
+L.control.layers(baseMaps, null, { position: "bottomleft" }).addTo(map);
 
 let currentGeoLayer = null;
 let counts = {
@@ -103,7 +103,6 @@ function renderGeoJSON(data) {
   }).addTo(map);
 
   if (currentGeoLayer.getBounds().isValid()) {
-    // maxZoom: 18 vererek aşırı yakınlaşıp boşluğa düşmeyi engelliyoruz
     map.flyToBounds(currentGeoLayer.getBounds(), { padding: [60, 60], maxZoom: 18, duration: 1.2 });
   }
   updateStatsUI();
