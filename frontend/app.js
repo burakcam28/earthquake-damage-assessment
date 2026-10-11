@@ -1,24 +1,41 @@
-// Web-GIS Map Logic with Satellite Basemap, Upload & Live Inference
+// Web-GIS Map Logic with High-Resolution Google/Esri Satellite & GeoJSON Layer
 
-const map = L.map("map").setView([36.2066, 36.1575], 18);
+// Harita Başlangıcı
+const map = L.map("map", {
+  center: [36.2066, 36.1575],
+  zoom: 17,
+  maxZoom: 21,
+});
 
-// Esri World Imagery (Yüksek Çözünürlüklü Uydu Altlığı - Tamamen Ücretsiz / API Key İstemez)
-L.tileLayer(
+// 1. Google Satellite Hybrid (En yüksek çözünürlük - Zoom 21'e kadar sokak sokak net görüntü)
+const googleHybrid = L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
+  maxZoom: 21,
+  attribution: "Google Uydu & Sokak",
+}).addTo(map);
+
+// 2. Esri World Imagery (maxNativeZoom: 17 sayesinde asla 'Map data not yet available' vermez, dijital büyütür)
+const esriSat = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   {
-    attribution: "Tiles &copy; Esri &mdash; Maxar, Earthstar Geographics",
-    maxZoom: 19,
+    maxNativeZoom: 17,
+    maxZoom: 21,
+    attribution: "Esri World Imagery",
   }
-).addTo(map);
+);
 
-// Esri World Boundaries & Places (Yer ve Sokak İsimleri Katmanı - API Key İstemez)
-L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-  {
-    attribution: "Esri Labels",
-    maxZoom: 19,
-  }
-).addTo(map);
+// 3. OpenStreetMap (Standart Vektör Şehir Haritası)
+const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "OpenStreetMap",
+});
+
+// Katman Değiştirici (Sağ üste harita seçenekleri ekle)
+const baseMaps = {
+  "🛰️ Google Uydu (Önerilen)": googleHybrid,
+  "🌍 Esri Uydu": esriSat,
+  "🗺️ Standart Şehir Haritası": osm,
+};
+L.control.layers(baseMaps, null, { position: "topright" }).addTo(map);
 
 let currentGeoLayer = null;
 let counts = {
@@ -44,7 +61,7 @@ function styleFeature(feature) {
     weight: 2,
     opacity: 1,
     color: "#ffffff",
-    fillOpacity: 0.65,
+    fillOpacity: 0.7,
   };
 }
 
@@ -86,7 +103,8 @@ function renderGeoJSON(data) {
   }).addTo(map);
 
   if (currentGeoLayer.getBounds().isValid()) {
-    map.flyToBounds(currentGeoLayer.getBounds(), { padding: [50, 50], duration: 1.2 });
+    // maxZoom: 18 vererek aşırı yakınlaşıp boşluğa düşmeyi engelliyoruz
+    map.flyToBounds(currentGeoLayer.getBounds(), { padding: [60, 60], maxZoom: 18, duration: 1.2 });
   }
   updateStatsUI();
 }
@@ -148,7 +166,6 @@ async function handlePredictSubmit(event) {
   formData.append("pre_image", preFile);
   formData.append("post_image", postFile);
 
-  // Butonu devre dışı bırak ve yükleniyor durumunu göster
   submitBtn.disabled = true;
   loadingStatus.style.display = "block";
 
@@ -164,8 +181,6 @@ async function handlePredictSubmit(event) {
     }
 
     const resultGeoJSON = await res.json();
-
-    // Haritayı yeni analiz edilen binalarla güncelle
     renderGeoJSON(resultGeoJSON);
 
     document.getElementById("region-title").innerText = "Yeni Analiz Edilen Bölge (Canlı Çıktı)";
