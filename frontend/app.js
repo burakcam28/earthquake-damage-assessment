@@ -1,16 +1,24 @@
-// Web-GIS Map Logic with Satellite Basemap & GeoJSON Layer
+// Web-GIS Map Logic with High-Resolution Retina Satellite, Verified Basemaps & GeoJSON Layer
 
+// Harita Başlangıcı (Antakya Merkezi)
 const map = L.map("map", {
   center: [36.2066, 36.1575],
   zoom: 17,
   maxZoom: 21,
 });
 
-const googleHybrid = L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
-  maxZoom: 21,
-  attribution: "Google Uydu & Sokak",
-}).addTo(map);
+// 1. Google Satellite Hybrid - Yüksek Netlik (Retina 512px Karolar)
+const googleHybrid = L.tileLayer(
+  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2",
+  {
+    tileSize: 512,
+    zoomOffset: -1,
+    maxZoom: 21,
+    attribution: "Google Uydu (HD)",
+  }
+).addTo(map);
 
+// 2. Esri World Imagery (Yedek Uydu Altlığı)
 const esriSat = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   {
@@ -20,18 +28,24 @@ const esriSat = L.tileLayer(
   }
 );
 
-const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "OpenStreetMap",
-});
+// 3. Esri World Street Map (403 vermeyen, kurumsal ve detaylı Türkçe sokak haritası)
+const esriStreet = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  {
+    maxZoom: 19,
+    attribution: "Esri Street Map",
+  }
+);
 
+// Katman Değiştirici Sol Altta
 const baseMaps = {
-  "🛰️ Google Uydu (Net)": googleHybrid,
+  "🛰️ Google Uydu (HD)": googleHybrid,
   "🌍 Esri Uydu": esriSat,
-  "🗺️ Şehir Haritası": osm,
+  "🗺️ Şehir Haritası": esriStreet,
 };
 L.control.layers(baseMaps, null, { position: "bottomleft" }).addTo(map);
 
+// FastAPI kapalıyken bile tarayıcının file:// CORS engeline takılmaması için gömülü yedek veri
 const EMBEDDED_SAMPLE_DATA = {
   "type": "FeatureCollection",
   "name": "sample_buildings_antakya",
@@ -44,7 +58,8 @@ const EMBEDDED_SAMPLE_DATA = {
         "damage_status": "destroyed",
         "damage_label": "Yıkık",
         "confidence": 0.92,
-        "color": "#dc3545"
+        "color": "#dc3545",
+        "area_m2": 240.5
       },
       "geometry": {
         "type": "Polygon",
@@ -59,7 +74,8 @@ const EMBEDDED_SAMPLE_DATA = {
         "damage_status": "no-damage",
         "damage_label": "Hasarsız",
         "confidence": 0.96,
-        "color": "#28a745"
+        "color": "#28a745",
+        "area_m2": 265.4
       },
       "geometry": {
         "type": "Polygon",
@@ -74,7 +90,8 @@ const EMBEDDED_SAMPLE_DATA = {
         "damage_status": "minor-damage",
         "damage_label": "Hafif Hasar",
         "confidence": 0.84,
-        "color": "#ffc107"
+        "color": "#ffc107",
+        "area_m2": 180.0
       },
       "geometry": {
         "type": "Polygon",
@@ -89,7 +106,8 @@ const EMBEDDED_SAMPLE_DATA = {
         "damage_status": "major-damage",
         "damage_label": "Ağır Hasar",
         "confidence": 0.88,
-        "color": "#fd7e14"
+        "color": "#fd7e14",
+        "area_m2": 310.2
       },
       "geometry": {
         "type": "Polygon",
@@ -110,10 +128,10 @@ function styleFeature(feature) {
   const color = feature.properties?.color || "#ffc107";
   return {
     fillColor: color,
-    weight: 2,
+    weight: 2.5,
     opacity: 1,
     color: "#ffffff",
-    fillOpacity: 0.7,
+    fillOpacity: 0.65,
   };
 }
 
@@ -124,12 +142,28 @@ function onEachFeature(feature, layer) {
     counts[status] += 1;
   }
 
+  // Hover efekti: Fare üzerine gelince kalınlaşsın
+  layer.on({
+    mouseover: function(e) {
+      const l = e.target;
+      l.setStyle({ weight: 4, fillOpacity: 0.85 });
+    },
+    mouseout: function(e) {
+      if (currentGeoLayer) {
+        currentGeoLayer.resetStyle(e.target);
+      }
+    },
+  });
+
   const popupContent = `
-    <div style="font-size: 13px; line-height: 1.5;">
-      <h4 style="margin: 0 0 6px 0; color: #1a202c;">Bina #${props.id || "-"}</h4>
-      <b>Durum:</b> <span style="color:${props.color}; font-weight:700;">${props.damage_label || props.damage_status}</span><br>
+    <div style="font-size: 13px; line-height: 1.6; min-width: 170px;">
+      <h4 style="margin: 0 0 6px 0; color: #1a202c; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+        Bina #${props.id || "-"}
+      </h4>
+      <b>Hasar Durumu:</b> <span style="color:${props.color}; font-weight:700;">${props.damage_label || props.damage_status}</span><br>
       <b>Güven Skoru:</b> %${Math.round((props.confidence || 0) * 100)}<br>
-      <b>Bölge:</b> ${props.neighborhood || "Antakya"}<br>
+      <b>Tahmini Alan:</b> ${props.area_m2 ? props.area_m2 + " m²" : "Hesaplanıyor"}<br>
+      <b>Konum:</b> ${props.neighborhood || "Antakya"}<br>
     </div>
   `;
   layer.bindPopup(popupContent);
