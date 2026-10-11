@@ -2,7 +2,7 @@
 
 const map = L.map("map").setView([36.2066, 36.1575], 18);
 
-// Esri World Imagery (High-Resolution Satellite Basemap)
+// Esri World Imagery (Yüksek Çözünürlüklü Uydu Altlığı - Tamamen Ücretsiz / API Key İstemez)
 L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   {
@@ -11,11 +11,11 @@ L.tileLayer(
   }
 ).addTo(map);
 
-// OpenStreetMap Labels Overlay for navigation
+// Esri World Boundaries & Places (Yer ve Sokak İsimleri Katmanı - API Key İstemez)
 L.tileLayer(
-  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
   {
-    subdomains: "abcd",
+    attribution: "Esri Labels",
     maxZoom: 19,
   }
 ).addTo(map);
@@ -70,7 +70,6 @@ async function loadBuildingData() {
   let data = null;
 
   try {
-    // Attempt FastAPI backend first
     const res = await fetch("http://127.0.0.1:8000/api/buildings");
     if (!res.ok) throw new Error("Backend not responding");
     data = await res.json();
@@ -78,7 +77,6 @@ async function loadBuildingData() {
     statusEl.style.background = "#e6fffa";
     statusEl.style.color = "#234e52";
   } catch (err) {
-    // Fallback to local sample GeoJSON
     try {
       const res = await fetch("../data/samples/sample_buildings.geojson");
       data = await res.json();
