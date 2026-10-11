@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyTorch & Weights
+*.pth
+*.pt
+*.pwf
+*.onnx
+checkpoints/
+weights/
+runs/
+wandb/
+
+# Data & Large Files
+data/raw/
+data/processed/
+*.tif
+*.tiff
+*.geotiff
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.h5
+*.hdf5
+
+# IDEs & System
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Database & Local Secrets
+*.sqlite3
+.env.local
+.env.*.local
