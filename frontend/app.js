@@ -1,19 +1,16 @@
-// Web-GIS Map Logic with High-Resolution Google/Esri Satellite & GeoJSON Layer
+// Web-GIS Map Logic with Satellite Basemap & GeoJSON Layer
 
-// Harita Başlangıcı (Antakya Merkezi)
 const map = L.map("map", {
   center: [36.2066, 36.1575],
   zoom: 17,
   maxZoom: 21,
 });
 
-// 1. Google Satellite Hybrid (En yüksek çözünürlük - Zoom 21'e kadar sokak sokak net görüntü)
 const googleHybrid = L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
   maxZoom: 21,
   attribution: "Google Uydu & Sokak",
 }).addTo(map);
 
-// 2. Esri World Imagery (maxNativeZoom: 17 sayesinde asla 'Map data not yet available' vermez, dijital büyütür)
 const esriSat = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   {
@@ -23,13 +20,11 @@ const esriSat = L.tileLayer(
   }
 );
 
-// 3. OpenStreetMap (Standart Vektör Şehir Haritası)
 const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: "OpenStreetMap",
 });
 
-// Katman Değiştiriciyi sol alta veya sağ alta koyuyoruz ki istatistik panelinin arkasında kalmasın
 const baseMaps = {
   "🛰️ Google Uydu (Net)": googleHybrid,
   "🌍 Esri Uydu": esriSat,
@@ -37,21 +32,78 @@ const baseMaps = {
 };
 L.control.layers(baseMaps, null, { position: "bottomleft" }).addTo(map);
 
-let currentGeoLayer = null;
-let counts = {
-  "no-damage": 0,
-  "minor-damage": 0,
-  "major-damage": 0,
-  "destroyed": 0,
+const EMBEDDED_SAMPLE_DATA = {
+  "type": "FeatureCollection",
+  "name": "sample_buildings_antakya",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "neighborhood": "Antakya Merkez",
+        "damage_status": "destroyed",
+        "damage_label": "Yıkık",
+        "confidence": 0.92,
+        "color": "#dc3545"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[36.1570, 36.2065], [36.1574, 36.2065], [36.1574, 36.2069], [36.1570, 36.2069], [36.1570, 36.2065]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "neighborhood": "Antakya Merkez",
+        "damage_status": "no-damage",
+        "damage_label": "Hasarsız",
+        "confidence": 0.96,
+        "color": "#28a745"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[36.1576, 36.2063], [36.1580, 36.2063], [36.1580, 36.2067], [36.1576, 36.2067], [36.1576, 36.2063]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "neighborhood": "Antakya Merkez",
+        "damage_status": "minor-damage",
+        "damage_label": "Hafif Hasar",
+        "confidence": 0.84,
+        "color": "#ffc107"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[36.1565, 36.2070], [36.1569, 36.2070], [36.1569, 36.2074], [36.1565, 36.2074], [36.1565, 36.2070]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "neighborhood": "Antakya Merkez",
+        "damage_status": "major-damage",
+        "damage_label": "Ağır Hasar",
+        "confidence": 0.88,
+        "color": "#fd7e14"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[36.1582, 36.2068], [36.1586, 36.2068], [36.1586, 36.2072], [36.1582, 36.2072], [36.1582, 36.2068]]]
+      }
+    }
+  ]
 };
 
+let currentGeoLayer = null;
+let counts = { "no-damage": 0, "minor-damage": 0, "major-damage": 0, "destroyed": 0 };
+
 function resetCounts() {
-  counts = {
-    "no-damage": 0,
-    "minor-damage": 0,
-    "major-damage": 0,
-    "destroyed": 0,
-  };
+  counts = { "no-damage": 0, "minor-damage": 0, "major-damage": 0, "destroyed": 0 };
 }
 
 function styleFeature(feature) {
@@ -77,7 +129,6 @@ function onEachFeature(feature, layer) {
       <h4 style="margin: 0 0 6px 0; color: #1a202c;">Bina #${props.id || "-"}</h4>
       <b>Durum:</b> <span style="color:${props.color}; font-weight:700;">${props.damage_label || props.damage_status}</span><br>
       <b>Güven Skoru:</b> %${Math.round((props.confidence || 0) * 100)}<br>
-      <b>Alan:</b> ${props.area_m2 ? props.area_m2 + " m²" : "Hesaplanıyor"}<br>
       <b>Bölge:</b> ${props.neighborhood || "Antakya"}<br>
     </div>
   `;
@@ -108,7 +159,6 @@ function renderGeoJSON(data) {
   updateStatsUI();
 }
 
-// İlk açılışta önceden işlenmiş şehir binalarını yükle
 async function loadInitialData() {
   const statusEl = document.getElementById("data-source-status");
 
@@ -121,22 +171,13 @@ async function loadInitialData() {
     statusEl.style.color = "#234e52";
     renderGeoJSON(data);
   } catch (err) {
-    try {
-      const res = await fetch("../data/samples/sample_buildings.geojson");
-      const data = await res.json();
-      statusEl.innerText = "Bağlantı: Yerel Örnek GeoJSON";
-      statusEl.style.background = "#fffaf0";
-      statusEl.style.color = "#7b341e";
-      renderGeoJSON(data);
-    } catch (fallbackErr) {
-      statusEl.innerText = "Veri yüklenemedi!";
-      statusEl.style.background = "#fff5f5";
-      statusEl.style.color = "#c53030";
-    }
+    statusEl.innerText = "Bağlantı: Çevrimdışı Örnek Veri (Backend Kapalı)";
+    statusEl.style.background = "#fffaf0";
+    statusEl.style.color = "#7b341e";
+    renderGeoJSON(EMBEDDED_SAMPLE_DATA);
   }
 }
 
-// Modal kontrolü
 function openUploadModal() {
   document.getElementById("uploadModal").style.display = "flex";
 }
@@ -146,7 +187,6 @@ function closeUploadModal() {
   document.getElementById("loadingStatus").style.display = "none";
 }
 
-// Kullanıcının yüklediği fotoğrafları FastAPI /api/predict'e gönderme
 async function handlePredictSubmit(event) {
   event.preventDefault();
 
@@ -192,7 +232,7 @@ async function handlePredictSubmit(event) {
 
     closeUploadModal();
   } catch (err) {
-    alert("Hata: " + err.message);
+    alert("Hata: Backend (FastAPI) açık değil. Lütfen terminalde 'uvicorn backend.main:app --reload --port 8000' komutunu çalıştırın.");
   } finally {
     submitBtn.disabled = false;
     loadingStatus.style.display = "none";
