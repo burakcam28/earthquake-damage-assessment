@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import rasterio
 from rasterio.features import shapes
+from rasterio.transform import IDENTITY
 from shapely.geometry import shape
 
 
@@ -47,11 +48,14 @@ def mask_to_geojson(
     features: List[Dict[str, Any]] = []
     feature_id = 1
 
+    # Rasterio transform None verilirse çökmemesi için IDENTITY atanır
+    active_transform = transform if transform is not None else IDENTITY
+
     # Extract polygon shapes for each non-background class (1, 2, 3, 4)
     # Background (0) is ignored
-    mask_uint8 = prediction_mask.astype(np.int16)
+    mask_int16 = prediction_mask.astype(np.int16)
 
-    for geom, value in shapes(mask_uint8, mask=(mask_uint8 > 0), transform=transform):
+    for geom, value in shapes(mask_int16, mask=(mask_int16 > 0), transform=active_transform):
         class_val = int(value)
         if class_val not in LABEL_INFO:
             continue
@@ -59,8 +63,8 @@ def mask_to_geojson(
         info = LABEL_INFO[class_val]
         poly = shape(geom)
 
-        # Skip tiny artifact polygons (less than ~10 sq meters or 5 pixels)
-        if poly.area < 1e-7 and transform is not None:
+        # Skip tiny artifact polygons (less than ~5 pixels)
+        if poly.area < 2.0 and transform is None:
             continue
 
         feature = {
@@ -70,7 +74,7 @@ def mask_to_geojson(
                 "damage_status": info["status"],
                 "damage_label": info["label"],
                 "color": info["color"],
-                "confidence": 0.85,  # Default or extracted from confidence_map
+                "confidence": 0.88,
             },
             "geometry": geom,
         }
