@@ -13,6 +13,7 @@
     body, html { height: 100%; width: 100%; overflow: hidden; }
     #map { height: 100vh; width: 100vw; z-index: 1; }
 
+    /* Sağ Üst İstatistik & Lejant Paneli */
     .control-panel {
       position: absolute;
       top: 16px;
@@ -21,9 +22,9 @@
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
       padding: 16px 20px;
-      border-radius: 10px;
+      border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-      width: 300px;
+      width: 320px;
     }
 
     .control-panel h2 {
@@ -79,15 +80,150 @@
       color: #234e52;
       border: 1px solid #b2f5ea;
     }
+
+    /* Sol Üst Görüntü Yükleme ve Analiz Paneli */
+    .upload-panel-btn {
+      position: absolute;
+      top: 16px;
+      left: 60px;
+      z-index: 1000;
+      background: #0066cc;
+      color: #ffffff;
+      border: none;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,102,204,0.35);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .upload-panel-btn:hover {
+      background: #0052a3;
+      transform: translateY(-1px);
+    }
+
+    /* Yükleme Modal Penceresi */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 14px;
+      width: 440px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      position: relative;
+    }
+
+    .modal-card h3 {
+      font-size: 18px;
+      color: #1a202c;
+      margin-bottom: 6px;
+    }
+
+    .modal-card p {
+      font-size: 12px;
+      color: #718096;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 6px;
+    }
+
+    .form-group input[type="file"] {
+      display: block;
+      width: 100%;
+      font-size: 12px;
+      color: #4a5568;
+      padding: 8px;
+      border: 1px dashed #cbd5e0;
+      border-radius: 6px;
+      background: #f7fafc;
+      cursor: pointer;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-submit {
+      flex: 1;
+      background: #2b6cb0;
+      color: #ffffff;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-submit:hover { background: #2c5282; }
+
+    .btn-cancel {
+      background: #edf2f7;
+      color: #4a5568;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-cancel:hover { background: #e2e8f0; }
+
+    /* Yükleme animasyonu durumu */
+    .loading-status {
+      display: none;
+      margin-top: 14px;
+      font-size: 12px;
+      text-align: center;
+      color: #2b6cb0;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
 
   <div id="map"></div>
 
+  <!-- Canlı Analiz Başlatma Butonu -->
+  <button class="upload-panel-btn" onclick="openUploadModal()">
+    <span>🛰️</span> Yeni Uydu Görüntüsü Yükle & Analiz Et
+  </button>
+
+  <!-- Sağ Üst İstatistik Paneli -->
   <div class="control-panel">
     <h2>Deprem Hasar Analizi</h2>
-    <p class="subtitle">Antakya Bölgesi — VHR Uydu Segmentasyonu</p>
+    <p class="subtitle" id="region-title">Antakya Bölgesi — VHR Uydu Segmentasyonu</p>
     
     <div class="legend-item">
       <span class="legend-label"><span class="legend-color" style="background:#28a745;"></span>Hasarsız</span>
@@ -107,6 +243,35 @@
     </div>
 
     <div class="status-alert" id="data-source-status">Veri kaynağı yükleniyor...</div>
+  </div>
+
+  <!-- Yükleme Modalı -->
+  <div class="modal-overlay" id="uploadModal">
+    <div class="modal-card">
+      <h3>Canlı Uydu Hasar Analizi</h3>
+      <p>Deprem öncesi ve sonrası yüksek çözünürlüklü görüntü çiftini yükleyerek modeli çalıştırın.</p>
+
+      <form id="predictForm" onsubmit="handlePredictSubmit(event)">
+        <div class="form-group">
+          <label>1. Deprem Öncesi Görüntü (Pre-Disaster PNG/TIFF):</label>
+          <input type="file" id="preImageInput" accept=".png,.jpg,.jpeg,.tif,.tiff" required />
+        </div>
+
+        <div class="form-group">
+          <label>2. Deprem Sonrası Görüntü (Post-Disaster PNG/TIFF):</label>
+          <input type="file" id="postImageInput" accept=".png,.jpg,.jpeg,.tif,.tiff" required />
+        </div>
+
+        <div class="loading-status" id="loadingStatus">
+          ⏳ Yapay zekâ modeli görüntüleri analiz ediyor, lütfen bekleyin...
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick="closeUploadModal()">Vazgeç</button>
+          <button type="submit" class="btn-submit" id="submitBtn">Analizi Başlat</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Leaflet JS -->
